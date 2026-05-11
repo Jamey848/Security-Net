@@ -1,0 +1,57 @@
+services:
+    audit-database:
+        image: security-database
+        container_name: database-container
+        env_file:
+            - ./database/.env
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+        networks:
+            - security-net
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "jamey", "-d", "security_audit_db"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 15s
+    
+    audit-backend:
+        image: security-backend
+        container_name: backend-container
+        depends_on:
+            audit-database:
+                condition: service_healthy
+        env_file:
+            - ./backend/.env
+        ports:
+            - "3000:3000"
+        networks:
+            - security-net
+        restart: always
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3000/api/ready"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+
+    audit-frontend:
+        image: security-frontend
+        container_name: frontend-container
+        depends_on:
+            audit-backend:
+                condition: service_healthy
+        env_file:
+            - ./frontend/.env
+        ports:
+            - "8080:8080"
+        networks:
+            - security-net
+        restart: always
+
+volumes:
+    postgres-data:
+
+networks:
+    security-net:
+        driver: bridge
